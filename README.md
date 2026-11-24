@@ -45,7 +45,7 @@ python3 -m uvicorn api:app --host 0.0.0.0 --port 8000   # REST API
 # Telegram alert — can 2 bien moi truong:
 export TELEGRAM_BOT_TOKEN=...
 export TELEGRAM_CHAT_ID=...
-export DOJI_API_KEY=...        # key cua feed giavang.doji.vn; thieu thi nguon DOJI bao loi, nguon khac van chay
+# (tuy chon) DOJI_API_KEY: mac dinh dung key cong khai tren web DOJI
 python3 telegram_alert.py    # im lang + exit 0 neu khong co nguon RED
 ```
 
@@ -93,3 +93,7 @@ API chay lien tuc rieng (vi du qua systemd/pm2), khong nam trong cron.
 - [x] Alert dedup (15/07/2026) — `alert_state.json` luu tap nguon RED da
       gui + lan gui gan nhat; chi gui lai khi tap nguon thay doi hoac sau
       6h neu van RED lien tuc
+
+## License
+
+MIT — xem [LICENSE](LICENSE).

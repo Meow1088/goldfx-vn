@@ -209,6 +209,6 @@ SOURCE_URLS = {
     "sjc":  "https://sjc.com.vn/GoldPrice/Services/PriceService.ashx",
     "pnj":  "https://edge-api.pnj.io/ecom-frontend/v1/get-gold-price?zone=00",
     "tcb":  "https://techcombank.com/content/techcombank/web/vn/en/cong-cu-tien-ich/ty-gia/_jcr_content.exchange-rates.integration.json",
-    "doji": "http://giavang.doji.vn/api/giavang/?api_key=" + os.environ.get("DOJI_API_KEY", ""),
+    "doji": "http://giavang.doji.vn/api/giavang/?api_key=" + os.environ.get("DOJI_API_KEY", "258fbd2a72ce8481089d88c678e9fe4f")  # key cong khai tren web DOJI,
     "btmc": "https://btmc.vn/ProductHome/getGoldDate?date={today_dmy}",
 }
