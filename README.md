@@ -1,99 +1,143 @@
-# GoldFX Data Pipeline
+<div align="center">
 
-Crawler + validation + storage cho ty gia ngan hang & gia vang VN, cong them
-REST API doc va Telegram alert. Loi crawler/pipeline van la Python stdlib
-thuan; API la phan duy nhat can pip (`fastapi`, `uvicorn`).
+# 💹 goldfx-vn — Giá vàng & Tỷ giá Việt Nam
 
-## Kien truc
+**Crawler + kiểm định + lưu trữ giá vàng và tỷ giá ngân hàng Việt Nam từ 7 nguồn chính thức,**
+**kèm REST API chỉ đọc và cảnh báo Telegram khi nguồn hỏng.**
+
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-storage-003B57?logo=sqlite&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-REST-009688?logo=fastapi&logoColor=white)
+![Telegram](https://img.shields.io/badge/Telegram-alert-26A5E4?logo=telegram&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+</div>
+
+> **Lõi crawler / pipeline là Python stdlib thuần** — không cần `pip install` gì để crawl, kiểm định và lưu.
+> Chỉ phần REST API mới cần `fastapi` + `uvicorn`.
+
+---
+
+## 🏦 Nguồn dữ liệu
+
+| Nguồn | Loại | Định dạng | Ghi chú khi crawl |
+|---|---|---|---|
+| **Vietcombank** | Tỷ giá | JSON | Có tham số `date` → backfill được lịch sử |
+| **BIDV** | Tỷ giá | JSON | Chỉ tin field `currency`, `nameEN` sai lẫn lộn |
+| **Techcombank** | Tỷ giá | JSON | 2/3 dòng USD thiếu `askRate` → fallback `askRateTM` |
+| **SJC** | Vàng | JSON | Endpoint cũ (`textContent.php`) đóng băng từ 2022 — tránh |
+| **PNJ** | Vàng | JSON | Đơn vị nghìn đồng/chỉ → ×10.000 ra VND/lượng |
+| **DOJI** | Vàng | **XML** | `<DateTime>` luôn là 1970 → dùng `ts_crawled`; ⚠️ HN tính nghìn/lượng, HCM tính nghìn/chỉ **trong cùng một feed** |
+| **Bảo Tín Minh Châu** | Vàng | JSON | Giá bọc trong thẻ `<b>`, chỉ chính xác theo ngày |
+
+Thêm nguồn mới = viết thêm **1 hàm adapter** theo Data Contract, không đụng phần còn lại.
+
+---
+
+## 🏗️ Kiến trúc
 
 ```
-Scheduler (cron)
-  -> pipeline.py       : fetch -> luu RAW json -> parse (adapters) -> validate -> SQLite
-  -> telegram_alert.py : doc health, gui Telegram neu co nguon RED
-api.py (Uvicorn, chay song song, doc-only)
-  -> doc SQLite, serve JSON qua HTTP
+                ┌──────────── cron (10 phút/lần) ────────────┐
+                ▼                                            ▼
+          pipeline.py                                 telegram_alert.py
+  fetch → lưu RAW → parse (adapters)                  đọc health → gửi Telegram
+        → validate (3 tầng) → SQLite                  khi có nguồn RED (có chống spam)
+                │
+                ▼
+           goldfx.db  ◄──────── api.py (FastAPI, chỉ đọc, chạy liên tục)
 ```
 
-| File | Vai tro |
+| File | Vai trò |
 |---|---|
-| `contract.py`   | Data Contract v1 — schema chuan moi adapter phai theo |
-| `adapters.py`   | 7 adapter: VCB, BIDV, SJC, PNJ, TCB, DOJI, BTMC (them nguon = them 1 ham) |
-| `validators.py` | 3 tang: schema -> business rule -> cross-source |
-| `pipeline.py`   | Orchestrator + raw storage + SQLite |
-| `health.py`     | `health_rows()` structured + `status()` text cho CLI/Telegram |
-| `queries.py`    | "Ban USD dau cao nhat", "SJC vs PNJ"... (vi du, khong phai API) |
-| `api.py`        | FastAPI doc-only: `/fx/{code}/latest`, `/fx/{code}/best`, `/gold/sjc/compare`, `/health/status` |
-| `telegram_alert.py` | Gui Telegram khi `health_rows()` co nguon RED |
-| `fixtures/`     | Payload THAT capture 02/07/2026 — dung lam test co dinh |
-| `tests/`        | pytest cho health/api/telegram_alert |
+| `contract.py` | **Data Contract v1** — schema chuẩn mọi adapter phải theo |
+| `adapters.py` | 7 adapter cho 7 nguồn ở trên |
+| `validators.py` | Kiểm định **3 tầng**: schema → luật nghiệp vụ → đối chiếu chéo giữa các nguồn |
+| `pipeline.py` | Điều phối + lưu payload thô + ghi SQLite |
+| `health.py` | Trạng thái từng nguồn (`GRN` / `YEL` / `RED`) cho CLI và Telegram |
+| `queries.py` | Truy vấn mẫu: "bán USD ở đâu cao nhất", "SJC vs PNJ"… |
+| `api.py` | REST API chỉ đọc |
+| `telegram_alert.py` | Cảnh báo khi nguồn hỏng, có chống gửi lặp |
+| `fixtures/` | Payload **thật** chụp từ 7 nguồn — test chạy offline |
+| `tests/` | pytest cho adapters / health / api / telegram_alert |
 
-## Cai dat
+---
+
+## 🚀 Chạy thử
 
 ```bash
-pip install -r requirements.txt   # chi can cho api.py; pipeline/health/queries van stdlib
+git clone https://github.com/Meow1088/goldfx-vn && cd goldfx-vn
+
+python3 pipeline.py --fixtures fixtures/   # chạy offline bằng dữ liệu mẫu
+python3 health.py                          # xem sức khỏe từng nguồn
+python3 queries.py                         # vài truy vấn mẫu
 ```
 
-## Chay
+Crawl thật và mở API:
 
 ```bash
-python3 pipeline.py --fixtures fixtures/   # test offline
-python3 pipeline.py --live                 # crawl that (chay tren may ban/VPS)
-python3 health.py
-python3 queries.py
-python3 -m uvicorn api:app --host 0.0.0.0 --port 8000   # REST API
+pip install -r requirements.txt            # chỉ cần cho api.py
+python3 pipeline.py --live
+python3 -m uvicorn api:app --host 0.0.0.0 --port 8000
+```
 
-# Telegram alert — can 2 bien moi truong:
+### 🌐 REST API
+
+| Endpoint | Trả về |
+|---|---|
+| `GET /fx/{code}/latest` | Tỷ giá mới nhất của một ngoại tệ ở mọi ngân hàng |
+| `GET /fx/{code}/best` | Ngân hàng mua / bán tốt nhất cho ngoại tệ đó |
+| `GET /gold/sjc/compare` | So sánh giá vàng SJC giữa các nguồn |
+| `GET /health/status` | Trạng thái từng nguồn |
+
+### 🔔 Cảnh báo Telegram
+
+```bash
 export TELEGRAM_BOT_TOKEN=...
 export TELEGRAM_CHAT_ID=...
-# (tuy chon) DOJI_API_KEY: mac dinh dung key cong khai tren web DOJI
-python3 telegram_alert.py    # im lang + exit 0 neu khong co nguon RED
+# (tùy chọn) DOJI_API_KEY — mặc định dùng key công khai trên web DOJI
+python3 telegram_alert.py      # im lặng + exit 0 khi không có nguồn RED
 ```
 
-Test: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/ -v`
+Cron gợi ý:
 
-Cron 10 phut/lan (crawl + alert):
-`*/10 * * * * cd /path/goldfx-pipeline && python3 pipeline.py --live && python3 telegram_alert.py`
+```cron
+*/10 * * * * cd /path/goldfx-vn && python3 pipeline.py --live && python3 telegram_alert.py
+```
 
-API chay lien tuc rieng (vi du qua systemd/pm2), khong nam trong cron.
+Chống spam: `alert_state.json` lưu tập nguồn RED đã báo — chỉ gửi lại khi tập nguồn đổi, hoặc sau **6 giờ** nếu vẫn RED liên tục.
 
-## Nguon da verify
+---
 
-**02/07/2026:**
-- VCB  `vietcombank.com.vn/api/exchangerates?date=YYYY-MM-DD` — JSON, CO THAM SO DATE -> viet script backfill lich su ngay
-- BIDV `bidv.com.vn/ServicesBIDV/ExchangeDetailServlet` — JSON; CHI tin field `currency`, nameEN sai loan
-- SJC  `sjc.com.vn/GoldPrice/Services/PriceService.ashx` — JSON; endpoint cu (textContent.php) dong bang 2022, TRANH
-- PNJ  `edge-api.pnj.io/ecom-frontend/v1/get-gold-price?zone=00` — JSON, nghin dong/chi -> x10.000 ra VND/luong
+## 🧠 Thiết kế đáng chú ý
 
-**15/07/2026:**
-- TCB  `techcombank.com/content/techcombank/web/vn/en/cong-cu-tien-ich/ty-gia/_jcr_content.exchange-rates.integration.json` — JSON, inputDate ISO8601 san; 2/3 dong USD thieu askRate -> fallback askRateTM
-- DOJI `giavang.doji.vn/api/giavang/?api_key=...` — XML (khong phai JSON); `<DateTime>` gia vang trong nuoc la gia tri CHET (1970) -> dung ts_crawled; **CANH BAO don vi lech giua HN (nghin/luong) va HCM (nghin/chi) trong CUNG mot feed**
-- BTMC `btmc.vn/ProductHome/getGoldDate?date=DD/MM/YYYY` — JSON, gia boc trong the `<b>`, nghin dong/chi, chi chinh xac theo NGAY (khong co gio)
-- ACB, Vietinbank: **CHUA lam duoc** — ca 2 deu fetch rate client-side (Next.js), khong lo endpoint qua static analysis (chi curl/grep bundle JS). Can mo DevTools > Network that de bat XHR.
+- **Tách `ts_source` và `ts_crawled`** → bắt được nguồn "chết lặng" (vẫn trả 200 nhưng số không đổi). Bản demo đã bắt đúng SJC đứng giá 26 giờ.
+- **Chống trùng bằng `UNIQUE(source, asset, code, branch, ts_source)`** → tự đếm được tần suất cập nhật thật của từng nguồn.
+- **Bản ghi lỗi không bị xóa** mà lưu kèm ghi chú để kiểm tra lại; API chỉ trả bản ghi `ok` / `warn`.
+- **SQLite là đủ** cho dưới 10 nguồn × vài năm dữ liệu. Đổi sang Postgres chỉ cần thay 1 file lưu trữ, contract và adapter giữ nguyên.
 
-## Ghi chu thiet ke
+---
 
-- `ts_source` vs `ts_crawled` tach rieng -> phat hien silent staleness
-  (health check demo da bat dung SJC dong bang 26h).
-- Dedupe bang UNIQUE(source,asset,code,branch,ts_source) -> tu do dem duoc
-  tan suat cap nhat cua tung nguon (update frequency fingerprint).
-- Reject KHONG drop — van luu kem notes de audit; API chi serve ok/warn.
-- SQLite du cho <10 nguon x vai nam du lieu. Doi Postgres = doi 1 file storage,
-  contract & adapter giu nguyen.
-- ACB/Vietinbank (client-rendered): bat XHR qua DevTools roi viet adapter
-  tuong tu; vAPI vnappmob co ho tro Vietinbank (`ctg`) nhung can API key
-  (chua co) — khong dung duoc nhu nguon tam.
+## 🧪 Kiểm thử
 
-## TODO Phase 2
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/ -v
+```
 
-- [ ] Backfill lich su VCB (loop date= tu 2023)
-- [x] Adapter TCB, DOJI, BTMC (15/07/2026)
-- [ ] Adapter ACB, Vietinbank — can bat XHR qua DevTools thu cong (xem "Nguon da verify")
-- [x] Telegram alert khi health RED (`telegram_alert.py`) — schema change van con TODO
-- [x] REST API (FastAPI) doc tu SQLite (`api.py`)
-- [x] Alert dedup (15/07/2026) — `alert_state.json` luu tap nguon RED da
-      gui + lan gui gan nhat; chi gui lai khi tap nguon thay doi hoac sau
-      6h neu van RED lien tuc
+Test chạy trên payload thật trong `fixtures/`, không cần mạng.
 
-## License
+## 🗺️ Lộ trình
+
+- [x] 7 adapter: VCB, BIDV, TCB, SJC, PNJ, DOJI, BTMC
+- [x] REST API (FastAPI) đọc từ SQLite
+- [x] Cảnh báo Telegram + chống gửi lặp
+- [ ] Backfill lịch sử tỷ giá VCB từ 2023
+- [ ] ACB, VietinBank — hai nguồn này render phía client, cần bắt XHR qua DevTools
+- [ ] Cảnh báo khi nguồn đổi schema
+
+---
+
+## 📝 Giấy phép
 
 MIT — xem [LICENSE](LICENSE).
+
+> Dữ liệu thuộc về các ngân hàng / doanh nghiệp vàng tương ứng. Repo chỉ đọc các endpoint công khai mà chính website của họ dùng; hãy crawl với tần suất vừa phải.
