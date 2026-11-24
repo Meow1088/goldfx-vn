@@ -1,0 +1,7 @@
+{"Count":20,"Date":"2026-07-02T00:00:00","UpdatedDate":"2026-07-02T08:09:09+07:00","Data":[
+{"currencyName":"US DOLLAR","currencyCode":"USD","cash":"26075.00","transfer":"26105.00","sell":"26465.00"},
+{"currencyName":"EURO","currencyCode":"EUR","cash":"29158.33","transfer":"29452.86","sell":"30695.57"},
+{"currencyName":"JAPANESE YEN","currencyCode":"JPY","cash":"156.13","transfer":"157.71","sell":"166.05"},
+{"currencyName":"UK POUND STERLING","currencyCode":"GBP","cash":"34017.20","transfer":"34360.81","sell":"35461.23"},
+{"currencyName":"AUSTRALIAN DOLLAR","currencyCode":"AUD","cash":"17646.71","transfer":"17824.96","sell":"18395.81"},
+{"currencyName":"DANISH KRONE","currencyCode":"DKK","cash":"0.00","transfer":"3930.29","sell":"4080.58"}]}
